@@ -22,4 +22,10 @@ pub enum ContractError {
 
     #[error("Message contained duplicate member: {member}")]
     DuplicateMember { member: String },
+
+    #[error("Name not existent")]
+    NameUnexistant { addr: String },
+
+    #[error("Name already used")]
+    NameUsed { name: String },
 }

@@ -6,7 +6,7 @@ use cosmwasm_std::{
 };
 use cw2::set_contract_version;
 use cw4::{
-    Member, MemberChangedHookMsg, MemberDiff, MemberListResponse, MemberResponse,
+    MemberChangedHookMsg, MemberDiff, MemberResponse,
     TotalWeightResponse,
 };
 use cw_storage_plus::Bound;
@@ -14,8 +14,8 @@ use cw_utils::maybe_addr;
 
 use crate::error::ContractError;
 use crate::helpers::validate_unique_members;
-use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
-use crate::state::{ADMIN, HOOKS, MEMBERS, TOTAL};
+use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg, MemberNamed, MemberNamedListResponse, LookUpResponse, ReverseLookUpResponse};
+use crate::state::{ADMIN, HOOKS, MEMBERS, TOTAL, NAMES_RESOLVER, ADDR_RESOLVER};
 
 // version info for migration info
 const CONTRACT_NAME: &str = "crates.io:cw4-group";
@@ -40,11 +40,18 @@ pub fn instantiate(
 pub fn create(
     mut deps: DepsMut,
     admin: Option<String>,
-    mut members: Vec<Member>,
+    mut members: Vec<MemberNamed>,
     height: u64,
 ) -> Result<(), ContractError> {
     validate_unique_members(&mut members)?;
     let members = members; // let go of mutability
+    
+    for n in members.iter() {
+        let n = &n.name;
+        if (ADDR_RESOLVER.may_load(deps.storage, n.clone())?).is_some() {
+            return Err(ContractError::NameUsed { name: n.into() });
+        }
+    };
 
     let admin_addr = admin
         .map(|admin| deps.api.addr_validate(&admin))
@@ -57,9 +64,11 @@ pub fn create(
         total = total.checked_add(member_weight)?;
         let member_addr = deps.api.addr_validate(&member.addr)?;
         MEMBERS.save(deps.storage, &member_addr, &member_weight.u64(), height)?;
+        NAMES_RESOLVER.save(deps.storage, &member_addr, &member.name)?;
+        ADDR_RESOLVER.save(deps.storage, member.name, &member_addr.to_string())?;
     }
     TOTAL.save(deps.storage, &total.u64(), height)?;
-
+    
     Ok(())
 }
 
@@ -94,7 +103,7 @@ pub fn execute_update_members(
     mut deps: DepsMut,
     env: Env,
     info: MessageInfo,
-    add: Vec<Member>,
+    add: Vec<MemberNamed>,
     remove: Vec<String>,
 ) -> Result<Response, ContractError> {
     let attributes = vec![
@@ -120,10 +129,12 @@ pub fn update_members(
     deps: DepsMut,
     height: u64,
     sender: Addr,
-    mut to_add: Vec<Member>,
+    mut to_add: Vec<MemberNamed>,
     to_remove: Vec<String>,
 ) -> Result<MemberChangedHookMsg, ContractError> {
     validate_unique_members(&mut to_add)?;
+    // TODO: also validate names
+
     let to_add = to_add; // let go of mutability
 
     ADMIN.assert_admin(deps.as_ref(), &sender)?;
@@ -140,6 +151,8 @@ pub fn update_members(
             diffs.push(MemberDiff::new(add.addr, old, Some(add.weight)));
             Ok(add.weight)
         })?;
+        NAMES_RESOLVER.save(deps.storage, &add_addr, &add.name)?;
+        ADDR_RESOLVER.save(deps.storage, add.name, &add_addr.to_string())?;
     }
 
     for remove in to_remove.into_iter() {
@@ -147,9 +160,13 @@ pub fn update_members(
         let old = MEMBERS.may_load(deps.storage, &remove_addr)?;
         // Only process this if they were actually in the list before
         if let Some(weight) = old {
-            diffs.push(MemberDiff::new(remove, Some(weight), None));
+            diffs.push(MemberDiff::new(remove.clone(), Some(weight), None));
             total = total.checked_sub(Uint64::from(weight))?;
             MEMBERS.remove(deps.storage, &remove_addr, height)?;
+            // should also delete names?
+            let prev_name = query_lookup(deps.as_ref(), remove)?;
+            NAMES_RESOLVER.remove(deps.storage, &remove_addr);
+            ADDR_RESOLVER.remove(deps.storage, prev_name.name.unwrap());
         }
     }
 
@@ -170,6 +187,8 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
         QueryMsg::TotalWeight { at_height: height } => {
             to_binary(&query_total_weight(deps, height)?)
         }
+        QueryMsg::LookUp { addr } => to_binary(&query_lookup(deps, addr)?),
+        QueryMsg::ReverseLookUp { name } => to_binary(&query_reverse_lookup(deps, name)?),
         QueryMsg::Admin {} => to_binary(&ADMIN.query_admin(deps)?),
         QueryMsg::Hooks {} => to_binary(&HOOKS.query_hooks(deps)?),
     }
@@ -193,6 +212,17 @@ pub fn query_member(deps: Deps, addr: String, height: Option<u64>) -> StdResult<
     Ok(MemberResponse { weight })
 }
 
+pub fn query_lookup(deps: Deps, addr: String) -> StdResult<LookUpResponse> {
+    let addr = deps.api.addr_validate(&addr)?;
+    let name = NAMES_RESOLVER.may_load(deps.storage, &addr)?;
+    Ok(LookUpResponse { name })
+}
+
+pub fn query_reverse_lookup(deps: Deps, name: String) -> StdResult<ReverseLookUpResponse> {
+    let addr = ADDR_RESOLVER.may_load(deps.storage, name.to_string())?;
+    Ok(ReverseLookUpResponse { addr })
+}
+
 // settings for pagination
 const MAX_LIMIT: u32 = 30;
 const DEFAULT_LIMIT: u32 = 10;
@@ -201,7 +231,7 @@ pub fn query_list_members(
     deps: Deps,
     start_after: Option<String>,
     limit: Option<u32>,
-) -> StdResult<MemberListResponse> {
+) -> StdResult<MemberNamedListResponse> {
     let limit = limit.unwrap_or(DEFAULT_LIMIT).min(MAX_LIMIT) as usize;
     let addr = maybe_addr(deps.api, start_after)?;
     let start = addr.as_ref().map(Bound::exclusive);
@@ -210,12 +240,16 @@ pub fn query_list_members(
         .range(deps.storage, start, None, Order::Ascending)
         .take(limit)
         .map(|item| {
-            item.map(|(addr, weight)| Member {
+            item.map(|(addr, weight)| 
+            {
+            let name = NAMES_RESOLVER.may_load(deps.storage, &addr).unwrap().unwrap();//_or("unnamed".into());
+            MemberNamed {
                 addr: addr.into(),
+                name,
                 weight,
-            })
+            }})
         })
         .collect::<StdResult<_>>()?;
 
-    Ok(MemberListResponse { members })
+    Ok(MemberNamedListResponse { members })
 }

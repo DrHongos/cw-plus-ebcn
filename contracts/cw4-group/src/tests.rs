@@ -1,12 +1,12 @@
 use cosmwasm_std::testing::{mock_dependencies, mock_env, mock_info};
 use cosmwasm_std::{from_slice, Addr, Api, DepsMut, OwnedDeps, Querier, Storage, SubMsg};
-use cw4::{member_key, Member, MemberChangedHookMsg, MemberDiff, TOTAL_KEY};
+use cw4::{member_key, MemberChangedHookMsg, MemberDiff, TOTAL_KEY};
 use cw_controllers::{AdminError, HookError};
 
 use crate::contract::{
-    execute, instantiate, query_list_members, query_member, query_total_weight, update_members,
+    execute, instantiate, query_list_members, query_member, query_total_weight, update_members, query_lookup, query_reverse_lookup,
 };
-use crate::msg::{ExecuteMsg, InstantiateMsg};
+use crate::msg::{ExecuteMsg, InstantiateMsg, MemberNamed};
 use crate::state::{ADMIN, HOOKS};
 use crate::ContractError;
 
@@ -19,12 +19,14 @@ fn set_up(deps: DepsMut) {
     let msg = InstantiateMsg {
         admin: Some(INIT_ADMIN.into()),
         members: vec![
-            Member {
+            MemberNamed {
                 addr: USER1.into(),
+                name: USER1.into(),
                 weight: 11,
             },
-            Member {
+            MemberNamed {
                 addr: USER2.into(),
+                name: USER2.into(),
                 weight: 6,
             },
         ],
@@ -72,16 +74,19 @@ fn duplicate_members_instantiation() {
     let msg = InstantiateMsg {
         admin: Some(INIT_ADMIN.into()),
         members: vec![
-            Member {
+            MemberNamed {
                 addr: USER1.into(),
+                name: USER1.into(),
                 weight: 5,
             },
-            Member {
+            MemberNamed {
                 addr: USER2.into(),
+                name: USER2.into(),
                 weight: 6,
             },
-            Member {
+            MemberNamed {
                 addr: USER1.into(),
+                name: USER1.into(),
                 weight: 6,
             },
         ],
@@ -97,18 +102,42 @@ fn duplicate_members_instantiation() {
 }
 
 #[test]
+fn naming_service() {
+    let mut deps = mock_dependencies();
+
+    let msg = InstantiateMsg {
+        admin: Some(INIT_ADMIN.into()),
+        members: vec![
+            MemberNamed {
+                addr: USER1.into(),
+                name: "test".into(),
+                weight: 5,
+            },
+        ],
+    };
+    let info = mock_info("creator", &[]);
+    let _err = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
+    let user1_name = query_lookup(deps.as_ref(), USER1.into()).unwrap();
+    let user1_addr = query_reverse_lookup(deps.as_ref(), "test".into()).unwrap();
+    assert_eq!(user1_name.name.unwrap(), "test".to_string());
+    assert_eq!(user1_addr.addr.unwrap(), USER1.to_string());
+}
+
+#[test]
 fn duplicate_members_execution() {
     let mut deps = mock_dependencies();
 
     set_up(deps.as_mut());
 
     let add = vec![
-        Member {
+        MemberNamed {
             addr: USER3.into(),
+            name: USER3.into(),
             weight: 15,
         },
-        Member {
+        MemberNamed {
             addr: USER3.into(),
+            name: USER3.into(),
             weight: 11,
         },
     ];
@@ -169,8 +198,9 @@ fn add_new_remove_old_member() {
     set_up(deps.as_mut());
 
     // add a new one and remove existing one
-    let add = vec![Member {
+    let add = vec![MemberNamed {
         addr: USER3.into(),
+        name: USER3.into(),
         weight: 15,
     }];
     let remove = vec![USER1.into()];
@@ -218,8 +248,9 @@ fn add_old_remove_new_member() {
     set_up(deps.as_mut());
 
     // add a new one and remove existing one
-    let add = vec![Member {
+    let add = vec![MemberNamed {
         addr: USER1.into(),
+        name: USER1.into(),
         weight: 4,
     }];
     let remove = vec![USER3.into()];
@@ -245,12 +276,14 @@ fn add_and_remove_same_member() {
 
     // USER1 is updated and remove in the same call, we should remove this an add member3
     let add = vec![
-        Member {
+        MemberNamed {
             addr: USER1.into(),
+            name: USER1.into(),
             weight: 20,
         },
-        Member {
+        MemberNamed {
             addr: USER3.into(),
+            name: USER3.into(),
             weight: 5,
         },
     ];
@@ -364,12 +397,14 @@ fn hooks_fire() {
     // make some changes - add 3, remove 2, and update 1
     // USER1 is updated and remove in the same call, we should remove this an add member3
     let add = vec![
-        Member {
+        MemberNamed {
             addr: USER1.into(),
+            name: USER1.into(),
             weight: 20,
         },
-        Member {
+        MemberNamed {
             addr: USER3.into(),
+            name: USER3.into(),
             weight: 5,
         },
     ];

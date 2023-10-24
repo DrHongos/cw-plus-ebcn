@@ -4,10 +4,11 @@ use cw4::{
     TOTAL_KEY_CHECKPOINTS,
 };
 use cw_controllers::{Admin, Hooks};
-use cw_storage_plus::{SnapshotItem, SnapshotMap, Strategy};
+use cw_storage_plus::{SnapshotItem, SnapshotMap, Strategy, Map};
 
 pub const ADMIN: Admin = Admin::new("admin");
 pub const HOOKS: Hooks = Hooks::new("cw4-hooks");
+
 
 pub const TOTAL: SnapshotItem<u64> = SnapshotItem::new(
     TOTAL_KEY,
@@ -21,4 +22,15 @@ pub const MEMBERS: SnapshotMap<&Addr, u64> = SnapshotMap::new(
     MEMBERS_CHECKPOINTS,
     MEMBERS_CHANGELOG,
     Strategy::EveryBlock,
+);
+
+pub const NAMES_KEY: &str = "names";
+pub const NAMES_RESOLVER: Map<&Addr, String> = Map::new(
+    NAMES_KEY,
+);
+
+pub const ADDR_KEY: &str = "address";
+
+pub const ADDR_RESOLVER: Map<String, String> = Map::new(
+    ADDR_KEY,
 );

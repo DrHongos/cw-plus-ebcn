@@ -1,12 +1,47 @@
 use cosmwasm_schema::{cw_serde, QueryResponses};
-use cw4::Member;
+//use cw4::Member;
+/* 
+TODO: 
+- add name in members (create new struct)           DONE        WAIT! having the biMap, i dont need to add an extra attribute
+- modify instantiate msg                            DONE
+- modify updateMember msg                           DONE
+- add lookups responses modified                    DONE
+- add storage for names and addresses               DONE
+- add lookup fn & add reverse_lookup fn             DONE 
+    - avoid repeated names                          
+    - add errors name based                         DONE
+    - on delete, remove mapping                     DONE
+*/
+
+#[cw_serde]
+pub struct MemberNamed {
+    pub addr: String,
+    pub name: String,
+    pub weight: u64,
+}
+
+#[cw_serde]
+pub struct MemberNamedListResponse {
+    pub members: Vec<MemberNamed>,
+}
+
+
+#[cw_serde]
+pub struct LookUpResponse {
+    pub name: Option<String>,
+}
+
+#[cw_serde]
+pub struct ReverseLookUpResponse {
+    pub addr: Option<String>,
+}
 
 #[cw_serde]
 pub struct InstantiateMsg {
     /// The admin is the only account that can update the group state.
     /// Omit it to make the group immutable.
     pub admin: Option<String>,
-    pub members: Vec<Member>,
+    pub members: Vec<MemberNamed>,
 }
 
 #[cw_serde]
@@ -17,7 +52,7 @@ pub enum ExecuteMsg {
     /// remove is applied after add, so if an address is in both, it is removed
     UpdateMembers {
         remove: Vec<String>,
-        add: Vec<Member>,
+        add: Vec<MemberNamed>,
     },
     /// Add a new hook to be informed of all membership changes. Must be called by Admin
     AddHook { addr: String },
@@ -32,7 +67,7 @@ pub enum QueryMsg {
     Admin {},
     #[returns(cw4::TotalWeightResponse)]
     TotalWeight { at_height: Option<u64> },
-    #[returns(cw4::MemberListResponse)]
+    #[returns(MemberNamedListResponse)]
     ListMembers {
         start_after: Option<String>,
         limit: Option<u32>,
@@ -41,6 +76,14 @@ pub enum QueryMsg {
     Member {
         addr: String,
         at_height: Option<u64>,
+    },
+    #[returns(LookUpResponse)]
+    LookUp {
+        addr: String,
+    },
+    #[returns(ReverseLookUpResponse)]
+    ReverseLookUp {
+        name: String,
     },
     /// Shows all registered hooks.
     #[returns(cw_controllers::HooksResponse)]
