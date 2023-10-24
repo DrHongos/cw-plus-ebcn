@@ -54,3 +54,37 @@ pub fn validate_unique_members(members: &mut [MemberNamed]) -> Result<(), Contra
 
     Ok(())
 }
+
+const MIN_NAME_LENGTH: u64 = 2;
+const MAX_NAME_LENGTH: u64 = 30;
+
+fn invalid_char(c: char) -> bool {
+    let is_valid =
+        c.is_ascii_digit() || c.is_ascii_lowercase() || (c == '.' || c == '-' || c == '_');
+    !is_valid
+}
+
+/// validate_name returns an error if the name is invalid
+/// (we require 3-64 lowercase ascii letters, numbers, or . - _)
+pub fn validate_name(name: &str) -> Result<(), ContractError> {
+    let length = name.len() as u64;
+    if (name.len() as u64) < MIN_NAME_LENGTH {
+        Err(ContractError::NameTooShort {
+            length,
+            min_length: MIN_NAME_LENGTH,
+        })
+    } else if (name.len() as u64) > MAX_NAME_LENGTH {
+        Err(ContractError::NameTooLong {
+            length,
+            max_length: MAX_NAME_LENGTH,
+        })
+    } else {
+        match name.find(invalid_char) {
+            None => Ok(()),
+            Some(bytepos_invalid_char_start) => {
+                let c = name[bytepos_invalid_char_start..].chars().next().unwrap();
+                Err(ContractError::InvalidCharacter { c })
+            }
+        }
+    }
+}

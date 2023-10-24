@@ -13,7 +13,7 @@ use cw_storage_plus::Bound;
 use cw_utils::maybe_addr;
 
 use crate::error::ContractError;
-use crate::helpers::validate_unique_members;
+use crate::helpers::{validate_unique_members, validate_name};
 use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg, MemberNamed, MemberNamedListResponse, LookUpResponse, ReverseLookUpResponse};
 use crate::state::{ADMIN, HOOKS, MEMBERS, TOTAL, NAMES_RESOLVER, ADDR_RESOLVER};
 
@@ -50,7 +50,8 @@ pub fn create(
         let n = &n.name;
         if (ADDR_RESOLVER.may_load(deps.storage, n.clone())?).is_some() {
             return Err(ContractError::NameUsed { name: n.into() });
-        }
+        } 
+        validate_name(n)?;
     };
 
     let admin_addr = admin
