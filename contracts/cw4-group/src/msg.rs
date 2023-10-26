@@ -1,17 +1,4 @@
 use cosmwasm_schema::{cw_serde, QueryResponses};
-//use cw4::Member;
-/* 
-TODO: 
-- add name in members (create new struct)           DONE        WAIT! having the biMap, i dont need to add an extra attribute
-- modify instantiate msg                            DONE
-- modify updateMember msg                           DONE
-- add lookups responses modified                    DONE
-- add storage for names and addresses               DONE
-- add lookup fn & add reverse_lookup fn             DONE 
-    - avoid repeated names                          
-    - add errors name based                         DONE
-    - on delete, remove mapping                     DONE
-*/
 
 #[cw_serde]
 pub struct MemberNamed {
