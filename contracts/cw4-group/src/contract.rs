@@ -167,7 +167,7 @@ pub fn update_members(
             // should also delete names?
             let prev_name = query_lookup(deps.as_ref(), remove)?;
             NAMES_RESOLVER.remove(deps.storage, &remove_addr);
-            ADDR_RESOLVER.remove(deps.storage, prev_name.name.unwrap());
+            ADDR_RESOLVER.remove(deps.storage, prev_name.addr.unwrap());
         }
     }
 
@@ -188,8 +188,8 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
         QueryMsg::TotalWeight { at_height: height } => {
             to_binary(&query_total_weight(deps, height)?)
         }
-        QueryMsg::LookUp { addr } => to_binary(&query_lookup(deps, addr)?),
-        QueryMsg::ReverseLookUp { name } => to_binary(&query_reverse_lookup(deps, name)?),
+        QueryMsg::LookUp { name } => to_binary(&query_lookup(deps, name)?),
+        QueryMsg::ReverseLookUp { addr } => to_binary(&query_reverse_lookup(deps, addr)?),
         QueryMsg::Admin {} => to_binary(&ADMIN.query_admin(deps)?),
         QueryMsg::Hooks {} => to_binary(&HOOKS.query_hooks(deps)?),
     }
@@ -213,15 +213,15 @@ pub fn query_member(deps: Deps, addr: String, height: Option<u64>) -> StdResult<
     Ok(MemberResponse { weight })
 }
 
-pub fn query_lookup(deps: Deps, addr: String) -> StdResult<LookUpResponse> {
+pub fn query_reverse_lookup(deps: Deps, addr: String) -> StdResult<ReverseLookUpResponse> {
     let addr = deps.api.addr_validate(&addr)?;
     let name = NAMES_RESOLVER.may_load(deps.storage, &addr)?;
-    Ok(LookUpResponse { name })
+    Ok(ReverseLookUpResponse { name })
 }
 
-pub fn query_reverse_lookup(deps: Deps, name: String) -> StdResult<ReverseLookUpResponse> {
+pub fn query_lookup(deps: Deps, name: String) -> StdResult<LookUpResponse> {
     let addr = ADDR_RESOLVER.may_load(deps.storage, name.to_string())?;
-    Ok(ReverseLookUpResponse { addr })
+    Ok(LookUpResponse { addr })
 }
 
 // settings for pagination

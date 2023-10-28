@@ -1,9 +1,12 @@
 use cosmwasm_std::{
     entry_point, to_binary, Binary, Deps, DepsMut, Env, MessageInfo, Response, StdError, StdResult,
 };
+//use cw4_group::helpers::Cw4GroupContract;
+//    contract::query_reverse_lookup as group_reverse_look_up,
 
 use crate::coin_helpers::assert_sent_sufficient_coin;
 use crate::error::ContractError;
+use crate::helpers::Cw69Contract;
 use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg, PriceQuery};
 use cw4_group::msg::{LookUpResponse, ReverseLookUpResponse};
 use crate::state::{Config, CONFIG, NAMES_RESOLVER, ADDR_RESOLVER};
@@ -103,39 +106,40 @@ pub fn execute_change(
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
     match msg {
-        QueryMsg::LookUp { addr } => to_binary(&query_lookup(deps, addr)?),
-        QueryMsg::ReverseLookUp { name } => to_binary(&query_reverse_lookup(deps, name)?),
+        QueryMsg::LookUp { name } => to_binary(&query_lookup(deps, name)?),
+        QueryMsg::ReverseLookUp { addr } => to_binary(&query_reverse_lookup(deps, addr)?),
         QueryMsg::Price { } => to_binary::<PriceQuery>(&CONFIG.load(deps.storage)?.into()),
     }
 }
 
 // TODO: add the check for points (indexing) and query contracts
-pub fn query_lookup(deps: Deps, addr: String) -> StdResult<LookUpResponse> {
+pub fn query_reverse_lookup(deps: Deps, addr: String) -> StdResult<ReverseLookUpResponse> {
     let addr = deps.api.addr_validate(&addr)?;
     let name = NAMES_RESOLVER.may_load(deps.storage, &addr)?;
-    Ok(LookUpResponse { name })
+    Ok(ReverseLookUpResponse { name })
 }
 
-pub fn query_reverse_lookup(deps: Deps, name: String) -> StdResult<ReverseLookUpResponse> {
-    // split points and loop
-    let links: Vec<&str> = name.split('.').rev().collect();
-    let mut addr = query_reverse_lookup(deps, links.get(0).unwrap().to_string())?.addr.unwrap();
-
-    
-
-/*     
-    for link in links {
-        let cosmos_msg = WasmMsg::Execute {
-            contract_addr: link,
-            code_hash: code_hash,
-            msg: to_binary(&exec_msg)?,
-            funds: vec![],
-        };
+pub fn query_lookup(deps: Deps, name: String) -> StdResult<LookUpResponse> {
+    let mut links = name.split('.').rev().into_iter();
+    let links_s = links.clone().count();
+    let fname = links.next();
+    let faddr = ADDR_RESOLVER.may_load(deps.storage, fname.unwrap().to_string())?;
+    match links_s {
+        0 => { Ok(LookUpResponse { addr: None })}
+        1 => {
+            Ok(LookUpResponse { addr: faddr })        
+        },
+        _ => {
+            let mut addr_a = faddr;
+            while let Some(name) = links.next() {
+                let addr_p = deps.api.addr_validate(&addr_a.unwrap())?;
+                let pname = Cw69Contract(addr_p)
+                    .look_up(&deps.querier, name.into())?;
+                addr_a = pname;
+            } 
+            Ok(LookUpResponse { addr: addr_a })
+        }
     }
- */
-
-    let addr = ADDR_RESOLVER.may_load(deps.storage, name.to_string())?;
-    Ok(ReverseLookUpResponse { addr })
 }
 
 fn invalid_char(c: char) -> bool {

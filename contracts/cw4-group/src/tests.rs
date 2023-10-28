@@ -117,10 +117,10 @@ fn naming_service() {
     };
     let info = mock_info("creator", &[]);
     let _err = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
-    let user1_name = query_lookup(deps.as_ref(), USER1.into()).unwrap();
-    let user1_addr = query_reverse_lookup(deps.as_ref(), "test".into()).unwrap();
-    assert_eq!(user1_name.name.unwrap(), "test".to_string());
-    assert_eq!(user1_addr.addr.unwrap(), USER1.to_string());
+    let user1_name = query_lookup(deps.as_ref(), "test".into()).unwrap();
+    let user1_addr = query_reverse_lookup(deps.as_ref(),USER1.into()).unwrap();
+    assert_eq!(user1_name.addr.unwrap(), "test".to_string());
+    assert_eq!(user1_addr.name.unwrap(), USER1.to_string());
 }
 
 #[test]

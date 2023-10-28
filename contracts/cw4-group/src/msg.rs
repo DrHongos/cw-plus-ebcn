@@ -15,12 +15,12 @@ pub struct MemberNamedListResponse {
 
 #[cw_serde]
 pub struct LookUpResponse {
-    pub name: Option<String>,
+    pub addr: Option<String>,
 }
 
 #[cw_serde]
 pub struct ReverseLookUpResponse {
-    pub addr: Option<String>,
+    pub name: Option<String>,
 }
 
 #[cw_serde]
@@ -66,11 +66,11 @@ pub enum QueryMsg {
     },
     #[returns(LookUpResponse)]
     LookUp {
-        addr: String,
+        name: String,
     },
     #[returns(ReverseLookUpResponse)]
     ReverseLookUp {
-        name: String,
+        addr: String,
     },
     /// Shows all registered hooks.
     #[returns(cw_controllers::HooksResponse)]
