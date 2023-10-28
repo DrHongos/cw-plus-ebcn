@@ -13,8 +13,6 @@ use crate::state::{Config, CONFIG, NAMES_RESOLVER, ADDR_RESOLVER};
 
 /* 
 TODO:
-external queries (other smart contract like groups-named)           <<< TODO now
-    - indexed names (moi.guild)
 admin and permits!
 
 

@@ -1,0 +1,13 @@
+[package]
+name = "cw5"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+cw-storage-plus = "1.1.0"
+cosmwasm-schema = "1.4.0"
+cosmwasm-std = "1.4.0"
+schemars = "0.8.15"
+serde = { version = "1.0.188", default-features = false, features = ["derive"] }

@@ -491,7 +491,18 @@ dependencies = [
 ]
 
 [[package]]
-name = "cw69-name-indexer"
+name = "cw5"
+version = "0.1.0"
+dependencies = [
+ "cosmwasm-schema",
+ "cosmwasm-std",
+ "cw-storage-plus",
+ "schemars",
+ "serde",
+]
+
+[[package]]
+name = "cw50-indexer"
 version = "0.1.0"
 dependencies = [
  "cosmwasm-schema",
@@ -503,6 +514,7 @@ dependencies = [
  "cw2 1.1.1",
  "cw4",
  "cw4-group",
+ "cw5",
  "schemars",
  "serde",
  "thiserror",
