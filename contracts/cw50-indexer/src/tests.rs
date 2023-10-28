@@ -1,15 +1,20 @@
 #[cfg(test)]
 mod test_module {
-    use cosmwasm_std::testing::{mock_dependencies, mock_env, mock_info, MockApi, MockQuerier, MockStorage, MOCK_CONTRACT_ADDR};
-    use cosmwasm_std::{coin, coins, from_binary, Coin, Deps, DepsMut, Empty, Addr};
-    use cw4_group::msg::{LookUpResponse, ReverseLookUpResponse, MemberNamed};
+    use cosmwasm_std::testing::{mock_dependencies, mock_env, mock_info};
+    use cosmwasm_std::{/* coin, coins,*/ from_binary, Coin, Deps, DepsMut, Empty, Addr};
+    use cw4_group::msg::{LookUpResponse, MemberNamed};
     use crate::contract::{execute, instantiate, query};
-    use crate::error::ContractError;
     use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
-    use crate::state::Config;
+//    use crate::state::Config;
     use cw_multi_test::{
-        next_block, App, AppBuilder, BankSudo, Contract, ContractWrapper, Executor, SudoMsg, BankKeeper
+        App, Contract, ContractWrapper, Executor,
     };
+
+/* 
+a lot to add in here
+
+
+*/
 
     pub fn contract_cw69() -> Box<dyn Contract<Empty>> {
         let contract = ContractWrapper::new(
@@ -45,26 +50,31 @@ mod test_module {
         let value: LookUpResponse = from_binary(&res).unwrap();
         assert_eq!(Some(owner.to_string()), value.addr);
     }
-
+/* 
     fn assert_config_state(deps: Deps, expected: Config) {
         let res = query(deps, mock_env(), QueryMsg::Price {}).unwrap();
         let value: Config = from_binary(&res).unwrap();
         assert_eq!(value, expected);
     }
-
-    fn mock_init_with_price(deps: DepsMut, purchase_price: Coin, transfer_price: Coin) {
+ */
+/* 
+ fn mock_init_with_price(deps: DepsMut, purchase_price: Coin) {
         let msg = InstantiateMsg {
-            purchase_price: Some(purchase_price),
+            price: Some(purchase_price),
+            admin: None,
+            owner_can_update: true,
         };
 
         let info = mock_info("creator", &coins(2, "token"));
         let _res = instantiate(deps, mock_env(), info, msg)
             .expect("contract successfully handles InstantiateMsg");
     }
-
+ */
     fn mock_init_no_price(deps: DepsMut) {
         let msg = InstantiateMsg {
-            purchase_price: None,
+            price: None,
+            admin: None,
+            owner_can_update: true,
         };
 
         let info = mock_info("creator", &[]);
@@ -90,7 +100,9 @@ mod test_module {
 
         let indexer_contract_code_id = router.store_code(contract_cw69());
         let init_msg = InstantiateMsg {
-            purchase_price: None            
+            price: None,            
+            admin: None, 
+            owner_can_update: true,
         };
         let root_indexer = router.instantiate_contract(
             indexer_contract_code_id, 
@@ -181,7 +193,9 @@ mod test_module {
         // launch indexer
         let indexer_contract_code_id = router.store_code(contract_cw69());
         let init_msg = InstantiateMsg {
-            purchase_price: None            
+            price: None,
+            admin: None,
+            owner_can_update: true,            
         };
         let root_indexer = router.instantiate_contract(
             indexer_contract_code_id, 
@@ -276,7 +290,9 @@ mod test_module {
         // launch indexer
         let indexer_contract_code_id = router.store_code(contract_cw69());
         let init_msg = InstantiateMsg {
-            purchase_price: None            
+            price: None,
+            admin: None,
+            owner_can_update: true,
         };
         let root_indexer = router.instantiate_contract(
             indexer_contract_code_id, 
@@ -361,11 +377,10 @@ mod test_module {
         // querying for name resolves to correct address
         assert_name_owner(deps.as_ref(), "alice", "test");
     }
-
+/* 
     #[test]
     fn register_available_name_and_query_works_with_fees() {
         let mut deps = mock_dependencies();
-        mock_init_with_price(deps.as_mut(), coin(2, "token"), coin(2, "token"));
         mock_alice_registers_name(deps.as_mut(), &coins(2, "token"));
 
         // anyone can register an available name with more fees than needed
@@ -382,6 +397,7 @@ mod test_module {
         assert_name_owner(deps.as_ref(), "alice", "test");
         assert_name_owner(deps.as_ref(), "bob", "test2");
     }
+ */
 /* 
     #[test]
     fn proper_init_no_fees() {

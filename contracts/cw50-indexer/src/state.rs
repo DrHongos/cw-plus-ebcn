@@ -1,21 +1,12 @@
-use cw_storage_plus::{Map, Item};
-use cosmwasm_std::{Addr, Coin};
+use cosmwasm_std::Coin;
 use cosmwasm_schema::cw_serde;
+use cw_storage_plus::Item;
 
 #[cw_serde]
 pub struct Config {
-    pub purchase_price: Option<Coin>
+    pub price: Option<Coin>,
+    pub admin: Option<Vec<String>>,
+    pub owner_can_update: bool,
 }
 
 pub const CONFIG: Item<Config> = Item::new("config");
-
-pub const NAMES_KEY: &str = "names";
-pub const NAMES_RESOLVER: Map<&Addr, String> = Map::new(
-    NAMES_KEY,
-);
-
-pub const ADDR_KEY: &str = "address";
-
-pub const ADDR_RESOLVER: Map<String, String> = Map::new(
-    ADDR_KEY,
-);

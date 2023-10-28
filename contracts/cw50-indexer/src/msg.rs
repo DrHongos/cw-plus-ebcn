@@ -9,19 +9,21 @@ pub struct PriceQuery {
 
 impl From<Config> for PriceQuery {
     fn from(value: Config) -> Self {
-        Self { price: value.purchase_price }
+        Self { price: value.price }
     }
 }
 
 #[cw_serde]
 pub struct InstantiateMsg {
-    pub purchase_price: Option<Coin>,
+    pub price: Option<Coin>,
+    pub admin: Option<Vec<String>>,
+    pub owner_can_update: bool, 
 }
 
 #[cw_serde]
 pub enum ExecuteMsg {
     Register { address: String, name: String },
-    Change { address: String, to: String },
+    Update { address: String, to: String },
 }
 
 #[cw_serde]
