@@ -30,7 +30,7 @@ pub enum ExecuteMsg {
 #[derive(QueryResponses)]
 pub enum QueryMsg {
     #[returns(PriceQuery)]
-    Price { },
+    Config { },
     #[returns(cw4_group::msg::LookUpResponse)]
     LookUp { name: String },
     #[returns(cw4_group::msg::ReverseLookUpResponse)]

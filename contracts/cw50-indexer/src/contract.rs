@@ -3,21 +3,11 @@ use cosmwasm_std::{
 };
 use crate::coin_helpers::assert_sent_sufficient_coin;
 use crate::error::ContractError;
-use crate::helpers::Cw69Contract;
+use crate::helpers::Cw50Contract;
 use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg, PriceQuery};
 use cw4_group::msg::{LookUpResponse, ReverseLookUpResponse};
 use crate::state::{Config, CONFIG};
 use cw5::query::{ADDR_RESOLVER, NAMES_RESOLVER};
-
-/* 
-TODO:
-
-adapt to the use of the library cw5
- add functionality to admin
- and owner_can_update
-
-    can be more used the defined functions in cw5?
-*/
 
 // configurations to validate naming
 const MIN_NAME_LENGTH: u64 = 2;
@@ -93,8 +83,6 @@ pub fn execute_register(
     validate_name(&name)?;
     let config = CONFIG.load(deps.storage)?;
     assert_sent_sufficient_coin(&info.funds, config.price)?;
-
-//    let key = name.as_bytes();
     
     if (ADDR_RESOLVER.may_load(deps.storage, name.clone())?).is_some() {
         return Err(ContractError::NameTaken { name });
@@ -111,23 +99,34 @@ pub fn execute_register(
 pub fn execute_change(
     deps: DepsMut,
     _env: Env,
-    _info: MessageInfo,     // when added admin limits
+    info: MessageInfo,
     address: String,
     to: String,
 ) -> Result<Response, ContractError> {
-    //let config = CONFIG.load(deps.storage)?;
     let address_p = deps.api.addr_validate(&address)?;   
     validate_name(&to)?;
+    
+    let config = CONFIG.load(deps.storage)?;
+    let mut admins = config.admin.unwrap(); 
+    
     if (ADDR_RESOLVER.may_load(deps.storage, to.clone())?).is_some() {
         return Err(ContractError::NameTaken { name: to });
     }
     if let Some(name_actual) = ADDR_RESOLVER.may_load(deps.storage, address.clone())? {    
-        NAMES_RESOLVER.remove(deps.storage, address_p.clone().into());
-        ADDR_RESOLVER.remove(deps.storage, name_actual);
-        NAMES_RESOLVER.save(deps.storage, address_p.into(), &to)?;
-        ADDR_RESOLVER.save(deps.storage, to, &address)?;
-        
-        Ok(Response::default())
+        if config.owner_can_update {
+            admins.push(address.clone());
+        }        
+        if admins.contains(&info.sender.to_string()) {
+            NAMES_RESOLVER.remove(deps.storage, address_p.clone().into());
+            ADDR_RESOLVER.remove(deps.storage, name_actual);
+            NAMES_RESOLVER.save(deps.storage, address_p.into(), &to)?;
+            ADDR_RESOLVER.save(deps.storage, to, &address)?;
+            
+            Ok(Response::default())
+        } else {
+         Err(ContractError::Unauthorized {  })        
+        }
+    
     } else {
         Err(ContractError::Unauthorized {  })
     }
@@ -138,7 +137,7 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
     match msg {
         QueryMsg::LookUp { name } => to_binary(&query_lookup(deps, name)?),
         QueryMsg::ReverseLookUp { addr } => to_binary(&query_reverse_lookup(deps, addr)?),
-        QueryMsg::Price { } => to_binary::<PriceQuery>(&CONFIG.load(deps.storage)?.into()),
+        QueryMsg::Config { } => to_binary::<PriceQuery>(&CONFIG.load(deps.storage)?.into()),
     }
 }
 
@@ -162,7 +161,7 @@ pub fn query_lookup(deps: Deps, name: String) -> StdResult<LookUpResponse> {
             let mut addr_a = faddr;
             while let Some(name) = links.next() {
                 let addr_p = deps.api.addr_validate(&addr_a.unwrap())?;
-                let pname = Cw69Contract(addr_p)
+                let pname = Cw50Contract(addr_p)
                     .look_up(&deps.querier, name.into())?;
                 addr_a = pname;
             } 

@@ -4,14 +4,15 @@ use cosmwasm_std::{
 //    WasmMsg, CosmosMsg, 
 };
 use cw4_group::msg::LookUpResponse;
+use cw5::ReverseLookUpResponse;
 use crate::msg::QueryMsg;
 
 #[cw_serde]
-pub struct Cw69Contract(pub Addr);
+pub struct Cw50Contract(pub Addr);
 
-impl Cw69Contract {
+impl Cw50Contract {                         // add cw5 as interface?
     pub fn new(addr: Addr) -> Self {
-        Cw69Contract(addr)
+        Cw50Contract(addr)
     }
 
     pub fn addr(&self) -> Addr {
@@ -40,7 +41,11 @@ impl Cw69Contract {
         let res: LookUpResponse = querier.query(&query)?;
         Ok(res.addr)
     }
+    pub fn reverse_look_up(&self, querier: &QuerierWrapper, addr: String) -> StdResult<Option<String>> {
+        let query = self.encode_smart_query(QueryMsg::ReverseLookUp { addr })?;
+        let res: ReverseLookUpResponse = querier.query(&query)?;
+        Ok(res.name)
+    }
 
-    // should include the others (that i dont indend to call?)
 
 }
