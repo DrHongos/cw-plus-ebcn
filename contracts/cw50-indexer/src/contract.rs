@@ -15,7 +15,7 @@ const MAX_NAME_LENGTH: u64 = 30;
 
 fn invalid_char(c: char) -> bool {
     let is_valid =
-        c.is_ascii_digit() || c.is_ascii_lowercase() || (c == '.' || c == '-' || c == '_');
+        c.is_ascii_digit() || c.is_ascii_lowercase() || (c == '-' || c == '_');
     !is_valid
 }
 
@@ -68,7 +68,7 @@ pub fn execute(
 ) -> Result<Response, ContractError> {
     match msg {
         ExecuteMsg::Register { address, name } => execute_register(deps, env, info, address, name),
-        ExecuteMsg::Update { address, to } => execute_change(deps, env, info, address, to),
+        ExecuteMsg::Update { address, to } => execute_update(deps, env, info, address, to),
     }
 }
 
@@ -76,14 +76,16 @@ pub fn execute_register(
     deps: DepsMut,
     _env: Env,
     info: MessageInfo,
-    address: String,
+    address: String,        // some config could be put to restrict users to only name themselves
     name: String,
 ) -> Result<Response, ContractError> {
     let address_p = deps.api.addr_validate(&address)?;   
     validate_name(&name)?;
     let config = CONFIG.load(deps.storage)?;
     assert_sent_sufficient_coin(&info.funds, config.price)?;
-    
+
+    // restrict register process?
+
     if (ADDR_RESOLVER.may_load(deps.storage, name.clone())?).is_some() {
         return Err(ContractError::NameTaken { name });
     }
@@ -96,37 +98,34 @@ pub fn execute_register(
     Ok(Response::default())
 }
 
-pub fn execute_change(
+pub fn execute_update(
     deps: DepsMut,
     _env: Env,
     info: MessageInfo,
     address: String,
     to: String,
 ) -> Result<Response, ContractError> {
-    let address_p = deps.api.addr_validate(&address)?;   
+    //let address_p = deps.api.addr_validate(&address)?;   
     validate_name(&to)?;
-    
     let config = CONFIG.load(deps.storage)?;
-    let mut admins = config.admin.unwrap(); 
-    
-    if (ADDR_RESOLVER.may_load(deps.storage, to.clone())?).is_some() {
-        return Err(ContractError::NameTaken { name: to });
-    }
-    if let Some(name_actual) = ADDR_RESOLVER.may_load(deps.storage, address.clone())? {    
-        if config.owner_can_update {
-            admins.push(address.clone());
-        }        
-        if admins.contains(&info.sender.to_string()) {
-            NAMES_RESOLVER.remove(deps.storage, address_p.clone().into());
-            ADDR_RESOLVER.remove(deps.storage, name_actual);
-            NAMES_RESOLVER.save(deps.storage, address_p.into(), &to)?;
-            ADDR_RESOLVER.save(deps.storage, to, &address)?;
-            
-            Ok(Response::default())
-        } else {
-         Err(ContractError::Unauthorized {  })        
+    let admins = config.admin.unwrap_or_default(); 
+    let is_admin = admins.contains(&info.sender.to_string());
+    let is_owner = info.sender.to_string() == address && config.owner_can_update;
+
+    if is_admin || is_owner {
+        if (ADDR_RESOLVER.may_load(deps.storage, to.clone())?).is_some() {
+            return Err(ContractError::NameTaken { name: to });
         }
-    
+        match NAMES_RESOLVER.may_load(deps.storage, address.clone())? {
+            Some (name_actual) => {
+                NAMES_RESOLVER.remove(deps.storage, address.clone());
+                ADDR_RESOLVER.remove(deps.storage, name_actual);
+                NAMES_RESOLVER.save(deps.storage, address.clone(), &to)?;
+                ADDR_RESOLVER.save(deps.storage, to, &address)?;
+                Ok(Response::default())
+            },
+            _ => Err(ContractError::AddressUnSet { address })
+        }
     } else {
         Err(ContractError::Unauthorized {  })
     }

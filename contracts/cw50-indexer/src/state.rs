@@ -6,6 +6,7 @@ use cw_storage_plus::Item;
 pub struct Config {
     pub price: Option<Coin>,
     pub admin: Option<Vec<String>>,
+//    pub self_register: bool,          explore this and below's attribute
     pub owner_can_update: bool,
 }
 

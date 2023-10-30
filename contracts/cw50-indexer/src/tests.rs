@@ -1,22 +1,17 @@
 #[cfg(test)]
 mod test_module {
     use cosmwasm_std::testing::{mock_dependencies, mock_env, mock_info};
-    use cosmwasm_std::{/* coin, coins,*/ from_binary, Coin, Deps, DepsMut, Empty, Addr};
+    use cosmwasm_std::{coin, coins, from_binary, Coin, Deps, DepsMut, Empty, Addr};
     use cw4_group::msg::{LookUpResponse, MemberNamed};
     use crate::contract::{execute, instantiate, query};
+    use crate::error::ContractError;
     use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
 //    use crate::state::Config;
     use cw_multi_test::{
         App, Contract, ContractWrapper, Executor,
     };
 
-/* 
-a lot to add in here
-
-
-*/
-
-    pub fn contract_cw69() -> Box<dyn Contract<Empty>> {
+    pub fn contract_cw50() -> Box<dyn Contract<Empty>> {
         let contract = ContractWrapper::new(
             crate::contract::execute,
             crate::contract::instantiate,
@@ -50,17 +45,10 @@ a lot to add in here
         let value: LookUpResponse = from_binary(&res).unwrap();
         assert_eq!(Some(owner.to_string()), value.addr);
     }
-/* 
-    fn assert_config_state(deps: Deps, expected: Config) {
-        let res = query(deps, mock_env(), QueryMsg::Price {}).unwrap();
-        let value: Config = from_binary(&res).unwrap();
-        assert_eq!(value, expected);
-    }
- */
-/* 
- fn mock_init_with_price(deps: DepsMut, purchase_price: Coin) {
+
+    fn mock_init_with_price(deps: DepsMut, price: Coin) {
         let msg = InstantiateMsg {
-            price: Some(purchase_price),
+            price: Some(price),
             admin: None,
             owner_can_update: true,
         };
@@ -69,11 +57,11 @@ a lot to add in here
         let _res = instantiate(deps, mock_env(), info, msg)
             .expect("contract successfully handles InstantiateMsg");
     }
- */
-    fn mock_init_no_price(deps: DepsMut) {
+
+    fn mock_init_no_price(deps: DepsMut, admins: Option<Vec<String>>) {
         let msg = InstantiateMsg {
             price: None,
-            admin: None,
+            admin: admins,
             owner_can_update: true,
         };
 
@@ -86,7 +74,7 @@ a lot to add in here
         // alice can register an available name
         let info = mock_info("alice_key", sent);
         let msg = ExecuteMsg::Register {
-            address: "test".into(),
+            address: "alice_key".into(),
             name: "alice".to_string(),
         };
         let _res = execute(deps, mock_env(), info, msg)
@@ -98,7 +86,7 @@ a lot to add in here
         let mut router = mock_app();
         let alice = Addr::unchecked("alice_address");
 
-        let indexer_contract_code_id = router.store_code(contract_cw69());
+        let indexer_contract_code_id = router.store_code(contract_cw50());
         let init_msg = InstantiateMsg {
             price: None,            
             admin: None, 
@@ -191,7 +179,7 @@ a lot to add in here
         ).unwrap();
 
         // launch indexer
-        let indexer_contract_code_id = router.store_code(contract_cw69());
+        let indexer_contract_code_id = router.store_code(contract_cw50());
         let init_msg = InstantiateMsg {
             price: None,
             admin: None,
@@ -249,9 +237,6 @@ a lot to add in here
 
     #[test]
     fn register_indexed_more_layers() {
-        // (essentially a map of mappings where each contract is an indexer)
-        // make any number of indexed indexers and read through all of them << this
-        
         let mut router = mock_app();
         let alice = Addr::unchecked("alice_address");
         let bob = Addr::unchecked("bob_address");
@@ -288,7 +273,7 @@ a lot to add in here
         ).unwrap();
 
         // launch indexer
-        let indexer_contract_code_id = router.store_code(contract_cw69());
+        let indexer_contract_code_id = router.store_code(contract_cw50());
         let init_msg = InstantiateMsg {
             price: None,
             admin: None,
@@ -334,7 +319,7 @@ a lot to add in here
             &[]
         );
 
-        // check second layer names (and inter-contract queries)
+        // check second layer names
         let query_alice = QueryMsg::LookUp { name: "alice.gamers_for_life.guildhub".to_string() };                
         let query_bob = QueryMsg::LookUp { name: "bob.gamers_for_life.guildhub".to_string() };                
         let query_carol = QueryMsg::LookUp { name: "carol.gamers_for_life.guildhub".to_string() };                
@@ -370,23 +355,24 @@ a lot to add in here
     #[test]
     fn register_available_name_and_query_works() {
         let mut deps = mock_dependencies();
-        mock_init_no_price(deps.as_mut());
+        mock_init_no_price(deps.as_mut(), None);
         
         mock_alice_registers_name(deps.as_mut(), &[]);
         
         // querying for name resolves to correct address
-        assert_name_owner(deps.as_ref(), "alice", "test");
+        assert_name_owner(deps.as_ref(), "alice", "alice_key");
     }
-/* 
+
     #[test]
-    fn register_available_name_and_query_works_with_fees() {
+    fn register_available_name_and_query_works_with_price() {
         let mut deps = mock_dependencies();
-        mock_alice_registers_name(deps.as_mut(), &coins(2, "token"));
+        mock_init_with_price(deps.as_mut(), coin(5, "token"));
+        mock_alice_registers_name(deps.as_mut(), &coins(5, "token"));
 
         // anyone can register an available name with more fees than needed
         let info = mock_info("bob_key", &coins(5, "token"));
         let msg = ExecuteMsg::Register {
-            address: "test2".into(),
+            address: "bob_key".into(),
             name: "bob".to_string(),
         };
         
@@ -394,49 +380,20 @@ a lot to add in here
             .expect("contract successfully handles Register message");
         
         // querying for name resolves to correct address
-        assert_name_owner(deps.as_ref(), "alice", "test");
-        assert_name_owner(deps.as_ref(), "bob", "test2");
+        assert_name_owner(deps.as_ref(), "alice", "alice_key");
+        assert_name_owner(deps.as_ref(), "bob", "bob_key");
     }
- */
-/* 
+
     #[test]
-    fn proper_init_no_fees() {
-        let mut deps = mock_dependencies();
-
-        mock_init_no_price(deps.as_mut());
-
-        assert_config_state(
-            deps.as_ref(),
-            Config {
-                purchase_price: None,
-            },
-        );
-    }
- */
-/*     #[test]
-    fn proper_init_with_fees() {
-        let mut deps = mock_dependencies();
-
-        mock_init_with_price(deps.as_mut(), coin(3, "token"), coin(4, "token"));
-
-        assert_config_state(
-            deps.as_ref(),
-            Config {
-                purchase_price: Some(coin(3, "token")),
-            },
-        );
-    }
- */
-/*     #[test]
 fn fails_on_register_already_taken_name() {
         let mut deps = mock_dependencies();
-        mock_init_no_price(deps.as_mut());
+        mock_init_no_price(deps.as_mut(), None);
         mock_alice_registers_name(deps.as_mut(), &[]);
 
         // bob can't register the same name
-        let info = mock_info("bob_key", &coins(2, "token"));
+        let info = mock_info("bob_key", &[]);
         let msg = ExecuteMsg::Register {
-            address: "test".into(),
+            address: "bob_key".into(),
             name: "alice".to_string(),
         };
         let res = execute(deps.as_mut(), mock_env(), info, msg);
@@ -447,7 +404,7 @@ fn fails_on_register_already_taken_name() {
             Err(_) => panic!("Unknown error"),
         }
         // alice can't register the same name again
-        let info = mock_info("alice_key", &coins(2, "token"));
+        let info = mock_info("alice_key", &[]);
         let msg = ExecuteMsg::Register {
             address: "test".into(),
             name: "alice".to_string(),
@@ -460,17 +417,17 @@ fn fails_on_register_already_taken_name() {
             Err(e) => panic!("Unexpected error: {:?}", e),
         }
     }
- */
-/*     #[test]
+
+    #[test]
     fn register_available_name_fails_with_invalid_name() {
         let mut deps = mock_dependencies();
-        mock_init_no_price(deps.as_mut());
-        let info = mock_info("bob_key", &coins(2, "token"));
+        mock_init_no_price(deps.as_mut(), None);
+        let info = mock_info("bob_key", &[]);
 
         // hi is too short
         let msg = ExecuteMsg::Register {
             address: "test".into(),
-            name: "hi".to_string(),
+            name: "h".to_string(),
         };
         match execute(deps.as_mut(), mock_env(), info.clone(), msg) {
             Ok(_) => panic!("Must return error"),
@@ -504,22 +461,32 @@ fn fails_on_register_already_taken_name() {
             address: "test".into(),
             name: "two words".to_string(),
         };
+        match execute(deps.as_mut(), mock_env(), info.clone(), msg) {
+            Ok(_) => panic!("Must return error"),
+            Err(ContractError::InvalidCharacter { .. }) => {}
+            Err(_) => panic!("Unknown error"),
+        }
+        // specially dots!
+        let msg = ExecuteMsg::Register {
+            address: "test".into(),
+            name: "two.words".to_string(),
+        };
         match execute(deps.as_mut(), mock_env(), info, msg) {
             Ok(_) => panic!("Must return error"),
             Err(ContractError::InvalidCharacter { .. }) => {}
             Err(_) => panic!("Unknown error"),
         }
-    }
- */
-/*     #[test]
-    fn fails_on_register_insufficient_fees() {
-        let mut deps = mock_dependencies();
-        mock_init_with_price(deps.as_mut(), coin(2, "token"), coin(2, "token"));
 
-        // anyone can register an available name with sufficient fees
-        let info = mock_info("alice_key", &[]);
+    }
+
+    #[test]
+    fn fails_on_register_insufficient_pay() {
+        let mut deps = mock_dependencies();
+        mock_init_with_price(deps.as_mut(), coin(2, "token"));
+
+        let info = mock_info("alice_key", &coins(1, "token"));
         let msg = ExecuteMsg::Register {
-            address: "test".into(),
+            address: "alice_key".into(),
             name: "alice".to_string(),
         };
 
@@ -535,12 +502,12 @@ fn fails_on_register_already_taken_name() {
     #[test]
     fn fails_on_register_wrong_fee_denom() {
         let mut deps = mock_dependencies();
-        mock_init_with_price(deps.as_mut(), coin(2, "token"), coin(2, "token"));
+        mock_init_with_price(deps.as_mut(), coin(2, "token"));
 
         // anyone can register an available name with sufficient fees
-        let info = mock_info("alice_key", &coins(2, "earth"));
+        let info = mock_info("alice_key", &coins(2, "toquen"));
         let msg = ExecuteMsg::Register {
-            address: "test".into(),
+            address: "alice_key".into(),
             name: "alice".to_string(),
         };
 
@@ -552,143 +519,100 @@ fn fails_on_register_already_taken_name() {
             Err(e) => panic!("Unexpected error: {:?}", e),
         }
     }
- */
-/* 
+
+
     #[test]
-    fn transfer_works() {
+    fn update_works() {
         let mut deps = mock_dependencies();
-        mock_init_no_price(deps.as_mut());
+        mock_init_no_price(deps.as_mut(), None);
         mock_alice_registers_name(deps.as_mut(), &[]);
 
         // alice can transfer her name successfully to bob
         let info = mock_info("alice_key", &[]);
-        let msg = ExecuteMsg::Transfer {
-            name: "alice".to_string(),
-            to: "bob_key".to_string(),
+        let msg = ExecuteMsg::Update {
+            address: "alice_key".to_string(),
+            to: "metal_mania".to_string(),
         };
 
         let _res = execute(deps.as_mut(), mock_env(), info, msg)
-            .expect("contract successfully handles Transfer message");
+            .expect("contract successfully handles update message");
         // querying for name resolves to correct address (bob_key)
-        assert_name_owner(deps.as_ref(), "alice", "bob_key");
+        assert_name_owner(deps.as_ref(), "metal_mania", "alice_key");
     }
- */
-/* 
- #[test]
-    fn transfer_works_with_fees() {
-        let mut deps = mock_dependencies();
-        mock_init_with_price(deps.as_mut(), coin(2, "token"), coin(2, "token"));
-        mock_alice_registers_name(deps.as_mut(), &coins(2, "token"));
 
-        // alice can transfer her name successfully to bob
-        let info = mock_info("alice_key", &[coin(1, "earth"), coin(2, "token")]);
-        let msg = ExecuteMsg::Transfer {
-            name: "alice".to_string(),
-            to: "bob_key".to_string(),
+    #[test]
+    fn update_fails_if_not_owner() {
+        let mut deps = mock_dependencies();
+        mock_init_no_price(deps.as_mut(), None);
+        mock_alice_registers_name(deps.as_mut(), &[]);
+
+        let info = mock_info("bob_key", &[]);
+        let msg = ExecuteMsg::Update { 
+            address: "alice_key".to_string(), 
+            to: "bob".into() 
         };
 
-        let _res = execute(deps.as_mut(), mock_env(), info, msg)
-            .expect("contract successfully handles Transfer message");
-        // querying for name resolves to correct address (bob_key)
-        assert_name_owner(deps.as_ref(), "alice", "bob_key");
+        let res = execute(deps.as_mut(), mock_env(), info, msg);
+
+        match res {
+            Ok(_) => panic!("update call should fail with unauthorized"),
+            Err(ContractError::Unauthorized {}) => {}
+            Err(e) => panic!("Unexpected error: {:?}", e),
+        }
     }
- */
-/* 
- #[test]
-    fn fails_on_transfer_non_existent() {
+
+    #[test]
+    fn update_admin() {
         let mut deps = mock_dependencies();
-        mock_init_no_price(deps.as_mut());
+        mock_init_no_price(deps.as_mut(), Some(vec!["bob_key".into()]));
+        mock_alice_registers_name(deps.as_mut(), &[]);
+
+        let info = mock_info("bob_key", &[]);
+        let msg = ExecuteMsg::Update { address: "alice_key".into(), to: "alison".into() };
+        let _ = execute(deps.as_mut(), mock_env(), info, msg); 
+        assert_name_owner(deps.as_ref(), "alison", "alice_key");
+    }
+    
+    #[test]
+    fn fails_on_update_non_existent() {
+        let mut deps = mock_dependencies();
+        mock_init_no_price(deps.as_mut(), Some(vec!["bob_key".into()]));
         mock_alice_registers_name(deps.as_mut(), &[]);
 
         // alice can transfer her name successfully to bob
-        let info = mock_info("frank_key", &coins(2, "token"));
-        let msg = ExecuteMsg::Transfer {
-            name: "alice42".to_string(),
-            to: "bob_key".to_string(),
+        let info = mock_info("bob_key", &[]);
+        let msg = ExecuteMsg::Update {
+            address: "alice42".to_string(),
+            to: "bob".to_string(),
         };
 
         let res = execute(deps.as_mut(), mock_env(), info, msg);
 
         match res {
             Ok(_) => panic!("Must return error"),
-            Err(ContractError::NameNotExists { name }) => assert_eq!(name, "alice42"),
+            Err(ContractError::AddressUnSet { address }) => assert_eq!(address, "alice42"),
             Err(e) => panic!("Unexpected error: {:?}", e),
         }
-
-        // querying for name resolves to correct address (alice_key)
         assert_name_owner(deps.as_ref(), "alice", "alice_key");
     }
- */
-/* 
-    #[test]
-    fn fails_on_transfer_from_nonowner() {
-        let mut deps = mock_dependencies();
-        mock_init_no_price(deps.as_mut());
-        mock_alice_registers_name(deps.as_mut(), &[]);
 
-        // alice can transfer her name successfully to bob
-        let info = mock_info("frank_key", &coins(2, "token"));
-        let msg = ExecuteMsg::Transfer {
-            name: "alice".to_string(),
-            to: "bob_key".to_string(),
-        };
-
-        let res = execute(deps.as_mut(), mock_env(), info, msg);
-
-        match res {
-            Ok(_) => panic!("Must return error"),
-            Err(ContractError::Unauthorized { .. }) => {}
-            Err(e) => panic!("Unexpected error: {:?}", e),
-        }
-
-        // querying for name resolves to correct address (alice_key)
-        assert_name_owner(deps.as_ref(), "alice", "alice_key");
-    }
- */
-/* 
-    #[test]
-    fn fails_on_transfer_insufficient_fees() {
-        let mut deps = mock_dependencies();
-        mock_init_with_price(deps.as_mut(), coin(2, "token"), coin(5, "token"));
-        mock_alice_registers_name(deps.as_mut(), &coins(2, "token"));
-
-        // alice can transfer her name successfully to bob
-        let info = mock_info("alice_key", &[coin(1, "earth"), coin(2, "token")]);
-        let msg = ExecuteMsg::Transfer {
-            name: "alice".to_string(),
-            to: "bob_key".to_string(),
-        };
-
-        let res = execute(deps.as_mut(), mock_env(), info, msg);
-
-        match res {
-            Ok(_) => panic!("register call should fail with insufficient fees"),
-            Err(ContractError::InsufficientFundsSend {}) => {}
-            Err(e) => panic!("Unexpected error: {:?}", e),
-        }
-
-        // querying for name resolves to correct address (bob_key)
-        assert_name_owner(deps.as_ref(), "alice", "alice_key");
-    }
- */
-/* 
     #[test]
     fn returns_empty_on_query_unregistered_name() {
         let mut deps = mock_dependencies();
 
-        mock_init_no_price(deps.as_mut());
+        mock_init_no_price(deps.as_mut(), None);
 
         // querying for unregistered name results in NotFound error
         let res = query(
             deps.as_ref(),
             mock_env(),
-            QueryMsg::ResolveRecord {
+            QueryMsg::LookUp {
                 name: "alice".to_string(),
             },
         )
         .unwrap();
-        let value: ResolveRecordResponse = from_binary(&res).unwrap();
-        assert_eq!(None, value.address);
+        let value: LookUpResponse = from_binary(&res).unwrap();
+        assert_eq!(None, value.addr);
     }
-    */
+   
 }
